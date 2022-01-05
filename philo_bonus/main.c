@@ -6,70 +6,69 @@
 /*   By: oronda <oronda@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/11/25 14:46:01 by oronda            #+#    #+#             */
-/*   Updated: 2022/01/03 10:56:30 by oronda           ###   ########.fr       */
+/*   Updated: 2022/01/05 10:58:34 by oronda           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philo.h"
 
-int	chech_eat(t_philo *philo)
-{
-	if (philo->data->must_eat_nb != -1
-		&& philo->current_eat_nb >= philo->data->must_eat_nb)
-		return (0);
-	return (1);
-}
-
 void	*check_death(void *arg)
 {
-	t_data	*data;
 	t_philo	*philo;
 
-	data = (t_data *)arg;
-	philo = data->philos;
-	while (!data->is_dead)
-	{
-		while (philo)
+	philo = (t_philo *)arg;
+	while (1)
+	{	
+		sem_wait(philo->data->eat_check);
+		if (get_time_diff(philo->last_eat, get_time())
+			> philo->data->time_to_die)
 		{
-			if (!chech_eat(philo))
-				return (NULL);
-			pthread_mutex_lock(&data->eat_mutex);
-			if (get_time_diff(philo->last_eat, get_time()) > data->time_to_die)
-			{
-				print_msg(philo->data, philo->philo_id, "is dead");
-				pthread_mutex_unlock(&philo->fork.mutex);
-				data->is_dead = TRUE;
-			}
-			pthread_mutex_unlock(&data->eat_mutex);
-			if (data->is_dead)
-				return (NULL);
-			philo = philo->next;
+			print_msg(philo->data, philo->philo_id, "is dead");
+			philo->data->is_dead = TRUE;
+			sem_wait(philo->data->write);
+			exit(1);
 		}
+		sem_post(philo->data->eat_check);
+		if (philo->data->is_dead)
+			break ;
+		if (philo->data->must_eat_nb != -1
+			&& philo->current_eat_nb >= philo->data->must_eat_nb)
+			break ;
+		usleep(10);
 	}
 	return (NULL);
 }
 
-void	start_philos(t_data *data)
+int	start_philos(t_data *data)
 {
-	t_philo	*current;
 	int		i;
+	t_philo	*current;
 
-	i = 0;
+	i = -1;
 	current = data->philos;
-	pthread_mutex_init(&data->write, NULL);
-	pthread_mutex_init(&data->eat_mutex, NULL);
 	data->starttime = get_time();
-	create_threads(current, data);
-	check_death(data);
-	current = data->philos;
-	join_threads(current, data);
-	while (current->next && i < data->nb_of_philo)
-	{	
-		pthread_mutex_destroy(&current->fork.mutex);
-		current = current->next;
-		i++;
+	while (++i < data->nb_of_philo)
+	{
+		current->pid = fork();
+		if (current->pid < 0)
+			return (0);
+		if (current->pid == 0)
+			philo_main(current);
+		else if (current->pid > 0)
+			current = current->next;
+		usleep(100);
 	}
-	pthread_mutex_destroy(&data->write);
+	return (1);
+}
+
+void	clean_sems(t_data *data)
+{
+	sem_close(data->forks);
+	sem_close(data->write);
+	sem_close(data->eat_check);
+	sem_unlink("forks");
+	sem_unlink("write");
+	sem_unlink("eatcheck");
 }
 
 void	free_philos(t_data *data)
@@ -94,9 +93,13 @@ int	main(int argc, char *argv[])
 
 	if (!check_args(argc, argv))
 		return (print_error("args not valid"));
-	init_args(argc, argv, &data);
+	if (!init_args(argc, argv, &data))
+		return (print_error("args not valid"));
+	init_sems(&data);
 	init_philos(&data);
-	start_philos(&data);
+	if (!start_philos(&data))
+		return (print_error("error when starting the child processes"));
+	wait_processes(&data);
 	free_philos(&data);
 	return (0);
 }

@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   utils.c                                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: oronda <oronda@student.42nice.fr>          +#+  +:+       +#+        */
+/*   By: oronda <oronda@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/11/25 16:52:04 by oronda            #+#    #+#             */
-/*   Updated: 2021/12/30 12:40:59 by oronda           ###   ########.fr       */
+/*   Updated: 2022/01/03 14:30:04 by oronda           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,10 +23,10 @@ int	is_num(char *str)
 	return (1);
 }
 
-int	ft_atoi(char *str)
+long	ft_atoi(char *str)
 {
-	int	nb;
-	int	signe;
+	long	nb;
+	int		signe;
 
 	signe = 1;
 	nb = 0;
